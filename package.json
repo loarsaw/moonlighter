@@ -12,10 +12,16 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "ssh",
+    "github",
+    "git",
+    "identity",
+    "cli"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Switch between multiple GitHub SSH identities without host aliases or extra config on clone.",
   "dependencies": {
     "commander": "^14.0.0",
     "inquirer": "^12.9.0"
