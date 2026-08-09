@@ -9,6 +9,7 @@ import {
   commitAll,
   setGitIdentity,
   RESERVED_NAMES,
+  PROVIDERS,
 } from "../utils/key.js";
 
 export default async function init() {
@@ -19,6 +20,19 @@ export default async function init() {
     );
     return;
   }
+
+  const { provider } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "provider",
+      message: "Which provider is this identity for?",
+      choices: Object.entries(PROVIDERS).map(([key, p]) => ({
+        name: p.label,
+        value: key,
+      })),
+    },
+  ]);
+  const host = PROVIDERS[provider].host;
 
   const answers = await inquirer.prompt([
     {
@@ -77,15 +91,15 @@ export default async function init() {
     }
   }
 
-  writeConfig(keyId);
-  writeSignal(answers.username, answers.email);
+  writeConfig(keyId, host);
+  writeSignal(answers.username, answers.email, host);
   await commitAll("root");
   await createBranch(answers.username);
 
   console.log(
-    `\nDone. Identity "${answers.username}" <${answers.email}> is active.`
+    `\nDone. Identity "${answers.username}" <${answers.email}> (${PROVIDERS[provider].label}) is active.`
   );
   console.log(
-    `Add this key to GitHub: cat ~/.ssh/${keyId}.pub — then paste it under Settings → SSH keys.`
+    `Add this key to ${PROVIDERS[provider].label}: cat ~/.ssh/${keyId}.pub — then paste it under Settings → SSH keys.`
   );
 }

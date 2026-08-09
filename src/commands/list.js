@@ -10,9 +10,9 @@ export default async function listKeys() {
   const current = await getCurrentBranch();
 
   console.log("\nSaved identities:\n");
-  identities.forEach(({ username, email }) => {
+  identities.forEach(({ username, email, host }) => {
     const marker = username === current ? "→" : " ";
-    console.log(`${marker} ${username}  <${email}>`);
+    console.log(`${marker} ${username}  <${email}>  (${host})`);
   });
   console.log("");
 }

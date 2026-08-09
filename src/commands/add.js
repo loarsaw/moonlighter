@@ -9,9 +9,23 @@ import {
   branchExists,
   setGitIdentity,
   RESERVED_NAMES,
+  PROVIDERS,
 } from "../utils/key.js";
 
 export default async function addKey() {
+  const { provider } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "provider",
+      message: "Which provider is this identity for?",
+      choices: Object.entries(PROVIDERS).map(([key, p]) => ({
+        name: p.label,
+        value: key,
+      })),
+    },
+  ]);
+  const host = PROVIDERS[provider].host;
+
   const answers = await inquirer.prompt([
     {
       type: "input",
@@ -70,15 +84,17 @@ export default async function addKey() {
   }
 
   await createBranch(answers.username);
-  writeConfig(keyId);
-  appendSignal(answers.username, answers.email);
+  writeConfig(keyId, host);
+  appendSignal(answers.username, answers.email, host);
   await commitAll(answers.username);
   await setGitIdentity(answers.username, answers.email);
 
-  console.log(`\nAdded and switched to "${answers.username}" <${answers.email}>.`);
+  console.log(
+    `\nAdded and switched to "${answers.username}" <${answers.email}> (${PROVIDERS[provider].label}).`
+  );
   if (choice === "Create SSH Key") {
     console.log(
-      `Add this key to GitHub: cat ~/.ssh/${keyId}.pub — then paste it under Settings → SSH keys.`
+      `Add this key to ${PROVIDERS[provider].label}: cat ~/.ssh/${keyId}.pub — then paste it under Settings → SSH keys.`
     );
   }
 }

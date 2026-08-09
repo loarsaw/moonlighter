@@ -42,8 +42,8 @@ export default async function switchKey() {
   await checkoutBranch(selected);
   await setGitIdentity(selected, identity.email);
 
-  console.log(`Switched to "${selected}" <${identity.email}>.`);
+  console.log(`Switched to "${selected}" <${identity.email}> (${identity.host}).`);
   console.log("Testing connection...");
-  const result = await testConnection();
+  const result = await testConnection(identity.host);
   console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
 }

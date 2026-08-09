@@ -77,13 +77,18 @@ export function deleteKeyFiles(id) {
 
 // --- ssh config ------------------------------------------------------------
 
-const MARKER_START = "# >>> moonlighter github.com >>>";
-const MARKER_END = "# <<< moonlighter github.com <<<";
+export const PROVIDERS = {
+  github: { label: "GitHub", host: "github.com" },
+  gitlab: { label: "GitLab", host: "gitlab.com" },
+};
 
-export function writeConfig(id) {
+const MARKER_START = "# >>> moonlighter identity >>>";
+const MARKER_END = "# <<< moonlighter identity <<<";
+
+export function writeConfig(id, host) {
   const block = `${MARKER_START}
-Host github.com
-  HostName github.com
+Host ${host}
+  HostName ${host}
   User git
   IdentityFile ~/.ssh/${id}
   IdentitiesOnly yes
@@ -105,12 +110,15 @@ ${MARKER_END}`;
 // signal is intentionally NOT committed to git — it's a plain append-only file
 // so it survives branch switches unchanged.
 
-export function writeSignal(username, email) {
-  writeFileSync(signalPath, `${username},${email}\n`, "utf8");
+// host defaults to github.com so pre-existing signal files (written before
+// multi-provider support) keep working without a migration step.
+// :):
+export function writeSignal(username, email, host = "github.com") {
+  writeFileSync(signalPath, `${username},${email},${host}\n`, "utf8");
 }
 
-export function appendSignal(username, email) {
-  appendFileSync(signalPath, `${username},${email}\n`, "utf8");
+export function appendSignal(username, email, host = "github.com") {
+  appendFileSync(signalPath, `${username},${email},${host}\n`, "utf8");
 }
 
 export function listIdentities() {
@@ -120,14 +128,16 @@ export function listIdentities() {
     .split("\n")
     .filter(Boolean)
     .map((line) => {
-      const [username, email] = line.split(",");
-      return { username, email };
+      const [username, email, host] = line.split(",");
+      return { username, email, host: host || "github.com" };
     });
 }
 
 export function removeSignalEntry(username) {
   const remaining = listIdentities().filter((i) => i.username !== username);
-  const content = remaining.map((i) => `${i.username},${i.email}\n`).join("");
+  const content = remaining
+    .map((i) => `${i.username},${i.email},${i.host}\n`)
+    .join("");
   writeFileSync(signalPath, content, "utf8");
   return remaining;
 }
@@ -171,16 +181,19 @@ export async function setGitIdentity(name, email) {
 
 // --- connection check --------------------------------------------------------
 
-export async function testConnection() {
-  // GitHub's SSH test endpoint exits 1 even on success (no shell access granted),
-  // so a successful auth has to be detected from the message, not the exit code.
+// Success detection differs by provider 
+const SUCCESS_STRINGS = ["successfully authenticated", "welcome to gitlab"];
+
+export async function testConnection(host = "github.com") {
   try {
-    const { stdout, stderr } = await execFile("ssh", ["-T", "git@github.com"]);
+    const { stdout, stderr } = await execFile("ssh", ["-T", `git@${host}`]);
     return { success: true, message: (stdout || stderr).trim() };
   } catch (err) {
     const output = (err.stderr || err.message || "").trim();
     return {
-      success: output.includes("successfully authenticated"),
+      success: SUCCESS_STRINGS.some((s) =>
+        output.toLowerCase().includes(s)
+      ),
       message: output,
     };
   }
