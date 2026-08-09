@@ -4,12 +4,15 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import {
   existsSync,
+  mkdirSync,
+  chmodSync,
   readFileSync,
   writeFileSync,
   appendFileSync,
   readdirSync,
   unlinkSync,
 } from "node:fs";
+import { platform } from "node:process";
 
 const execFile = promisify(execFileCb);
 
@@ -25,13 +28,25 @@ const git = (args) => execFile("git", args, { cwd: sshPath });
 // --- Repo setup ----------------------------------------------------------
 
 export async function ensureGitRepo() {
+  if (!existsSync(sshPath)) {
+    mkdirSync(sshPath, { recursive: true });
+    if (platform !== "win32") {
+      chmodSync(sshPath, 0o700);
+    }
+  }
+
   if (existsSync(join(sshPath, ".git"))) {
     // Migration: if signal is still tracked by git, stop tracking it.
     // signal must be a plain file that never reverts on branch checkout —
     // it's a global registry, not per-identity state.
     try {
       await git(["rm", "--cached", "signal", "-q"]);
-      await git(["commit", "-m", "untrack signal (moonlighter migration)", "--allow-empty"]);
+      await git([
+        "commit",
+        "-m",
+        "untrack signal (moonlighter migration)",
+        "--allow-empty",
+      ]);
     } catch {
       // already untracked — fine
     }
@@ -112,7 +127,6 @@ ${MARKER_END}`;
 
 // host defaults to github.com so pre-existing signal files (written before
 // multi-provider support) keep working without a migration step.
-// :):
 export function writeSignal(username, email, host = "github.com") {
   writeFileSync(signalPath, `${username},${email},${host}\n`, "utf8");
 }
@@ -181,7 +195,7 @@ export async function setGitIdentity(name, email) {
 
 // --- connection check --------------------------------------------------------
 
-// Success detection differs by provider 
+// Success detection differs by provider
 const SUCCESS_STRINGS = ["successfully authenticated", "welcome to gitlab"];
 
 export async function testConnection(host = "github.com") {
@@ -191,9 +205,7 @@ export async function testConnection(host = "github.com") {
   } catch (err) {
     const output = (err.stderr || err.message || "").trim();
     return {
-      success: SUCCESS_STRINGS.some((s) =>
-        output.toLowerCase().includes(s)
-      ),
+      success: SUCCESS_STRINGS.some((s) => output.toLowerCase().includes(s)),
       message: output,
     };
   }
